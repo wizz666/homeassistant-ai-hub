@@ -30,7 +30,7 @@ input_text:
   ai_hub_test_prompt:
     name: "AI Hub – Testprompt"
     icon: mdi:comment-question-outline
-    max: 500
+    max: 255
     initial: "Skriv en mening om Formel 1 på svenska."
 
 

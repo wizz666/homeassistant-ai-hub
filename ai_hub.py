@@ -38,16 +38,34 @@ def _key_ok(k):
 
 
 def _get_key(provider):
-    """Hämtar API-nyckel för provider från ai_hub-entities."""
+    """
+    Hämtar API-nyckel för provider.
+    Prioritet: ai_hub-entity → legacy-nyckel från annan integration
+    (Så slipper man lägga in nyckeln igen om den redan finns någonstans.)
+    """
     mapping = {
         "groq":      "input_text.ai_hub_groq_key",
         "anthropic": "input_text.ai_hub_anthropic_key",
         "openai":    "input_text.ai_hub_openai_key",
     }
+    # Legacy-fallbacks: nycklar från andra integrationer
+    legacy = {
+        "groq":      "input_text.grocery_api_key_groq",
+        "anthropic": "input_text.grocery_api_key_anthropic",
+        "openai":    "input_text.grocery_api_key_openai",
+    }
     entity = mapping.get(provider)
-    if not entity:
-        return ""
-    return (state.get(entity) or "").strip()
+    if entity:
+        key = (state.get(entity) or "").strip()
+        if _key_ok(key):
+            return key
+    # Fallback till legacy-nyckel om ai_hub-nyckel är tom
+    leg_entity = legacy.get(provider)
+    if leg_entity:
+        key = (state.get(leg_entity) or "").strip()
+        if _key_ok(key):
+            return key
+    return ""
 
 
 def _configured_providers():
