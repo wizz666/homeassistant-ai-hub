@@ -1,0 +1,132 @@
+title: "AI Hub"
+views:
+
+  # ─── Vy 1: Nycklar & Leverantör ───────────────────────────────────────────
+  - title: "Nycklar"
+    path: keys
+    icon: mdi:key
+    cards:
+
+      - type: entities
+        title: "Leverantör"
+        entities:
+          - entity: input_select.ai_hub_default_provider
+            name: "Standardleverantör"
+          - entity: sensor.ai_hub_providers
+            name: "Aktiva leverantörer"
+
+      - type: entities
+        title: "API-nycklar"
+        entities:
+          - entity: input_text.ai_hub_groq_key
+            name: "Groq"
+          - entity: input_text.ai_hub_anthropic_key
+            name: "Anthropic"
+          - entity: input_text.ai_hub_openai_key
+            name: "OpenAI"
+
+      - type: markdown
+        content: >
+          ### Skaffa API-nycklar
+
+          | Leverantör | Kostnad | Länk |
+          |------------|---------|------|
+          | **Groq** | Gratis tier | [console.groq.com](https://console.groq.com) |
+          | **Anthropic** | ~$0.25/1M tokens | [console.anthropic.com](https://console.anthropic.com) |
+          | **OpenAI** | ~$0.15/1M tokens | [platform.openai.com](https://platform.openai.com) |
+          | **ha_ai_task** | Gratis | Kräver Google AI eller Anthropic i HA |
+
+          **Rekommendation**: Börja med **Groq** — gratis konto, snabb och bra kvalitet.
+
+          ### Vilka integrationer använder AI Hub?
+          - 🏎️ **OpenF1** — Live-kommentar + sessionreferat
+          - 🛒 **Grocery Tracker** — Receptförslag
+          - 📖 **Chronicle AI** — Q&A + Energi-Coach
+
+          Alla läser nycklar härifrån automatiskt. Byt nyckel här → alla integrationer uppdateras.
+
+  # ─── Vy 2: Testa ──────────────────────────────────────────────────────────
+  - title: "Testa"
+    path: testa
+    icon: mdi:send-circle-outline
+    cards:
+
+      - type: entities
+        title: "Testa AI Hub"
+        entities:
+          - entity: input_text.ai_hub_test_prompt
+            name: "Prompt"
+          - entity: input_select.ai_hub_default_provider
+            name: "Leverantör"
+
+      - type: button
+        name: "Skicka"
+        icon: mdi:send
+        tap_action:
+          action: call-service
+          service: script.ai_hub_test_btn
+
+      - type: entity
+        entity: sensor.ai_hub_status
+        name: "Status"
+        icon: mdi:robot
+
+      - type: markdown
+        title: "Svar"
+        content: >
+          {% set ts = state_attr('sensor.ai_hub_last_response', 'timestamp') %}
+          {% set prov = state_attr('sensor.ai_hub_last_response', 'provider_used') %}
+          {% set caller = state_attr('sensor.ai_hub_last_response', 'caller') %}
+          {% set prompt = state_attr('sensor.ai_hub_last_response', 'prompt') %}
+          {% if ts and ts != '' %}
+          _{{ prov }} · {{ ts[11:16] }} UTC · via {{ caller }}_
+
+          > {{ prompt }}
+
+          {% endif %}
+          {{ states('sensor.ai_hub_last_response') }}
+
+  # ─── Vy 3: Statistik ──────────────────────────────────────────────────────
+  - title: "Statistik"
+    path: statistik
+    icon: mdi:chart-bar
+    cards:
+
+      - type: entities
+        title: "Användning"
+        entities:
+          - entity: sensor.ai_hub_status
+            name: "Status"
+          - entity: sensor.ai_hub_providers
+            name: "Aktiva leverantörer"
+
+      - type: markdown
+        title: "Anrop per leverantör"
+        content: >
+          {% set attrs = state_attr('sensor.ai_hub_status', 'calls_by_provider') %}
+          {% set total = state_attr('sensor.ai_hub_last_response', 'total_calls') | int(0) %}
+          {% if attrs %}
+          | Leverantör | Anrop |
+          |------------|-------|
+          {% for prov, count in attrs.items() %}
+          | {{ prov }} | {{ count }} |
+          {% endfor %}
+          | **Totalt** | **{{ total }}** |
+          {% else %}
+          Inga anrop ännu denna session.
+          {% endif %}
+
+      - type: markdown
+        title: "Senaste anrop"
+        content: >
+          {% set ts = state_attr('sensor.ai_hub_last_response', 'timestamp') %}
+          {% set prov = state_attr('sensor.ai_hub_last_response', 'provider_used') %}
+          {% set caller = state_attr('sensor.ai_hub_last_response', 'caller') %}
+          {% if ts and ts != '' %}
+          **{{ ts[:10] }}  {{ ts[11:16] }} UTC**
+
+          Leverantör: {{ prov }}
+          Anropare: {{ caller }}
+          {% else %}
+          Inga anrop ännu.
+          {% endif %}

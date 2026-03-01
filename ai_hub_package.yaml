@@ -1,0 +1,57 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# AI Hub – Centraliserad AI-leverantörshantering
+# Alla integrationer (OpenF1, Grocery Tracker, Chronicle AI etc.) läser
+# sina API-nycklar härifrån istället för att ha egna fält.
+# ─────────────────────────────────────────────────────────────────────────────
+
+input_text:
+
+  ai_hub_groq_key:
+    name: "AI Hub – Groq API-nyckel"
+    icon: mdi:key
+    mode: password
+    max: 255
+    initial: ""
+
+  ai_hub_anthropic_key:
+    name: "AI Hub – Anthropic API-nyckel"
+    icon: mdi:key
+    mode: password
+    max: 255
+    initial: ""
+
+  ai_hub_openai_key:
+    name: "AI Hub – OpenAI API-nyckel"
+    icon: mdi:key
+    mode: password
+    max: 255
+    initial: ""
+
+  ai_hub_test_prompt:
+    name: "AI Hub – Testprompt"
+    icon: mdi:comment-question-outline
+    max: 500
+    initial: "Skriv en mening om Formel 1 på svenska."
+
+
+input_select:
+
+  ai_hub_default_provider:
+    name: "AI Hub – Standardleverantör"
+    icon: mdi:robot
+    options:
+      - auto          # Groq → Anthropic → OpenAI → ha_ai_task (första med giltig nyckel)
+      - groq          # Groq (gratis, snabb) — kräver Groq API-nyckel ovan
+      - ha_ai_task    # HA:s inbyggda AI (Google AI / Anthropic etc.)
+      - anthropic     # Anthropic Claude direkt — kräver Anthropic API-nyckel ovan
+      - openai        # OpenAI GPT-4o-mini — kräver OpenAI API-nyckel ovan
+    initial: auto
+
+
+script:
+
+  ai_hub_test_btn:
+    alias: "AI Hub – Testa"
+    icon: mdi:send
+    sequence:
+      - service: pyscript.ai_hub_test
