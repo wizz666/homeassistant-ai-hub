@@ -1,5 +1,5 @@
 """
-AI Hub – Centraliserad AI-leverantörshantering  v1.0
+AI Hub – Centraliserad AI-leverantörshantering  v1.1
 =====================================================
 Hanterar API-nycklar och routing för alla AI-integrationer i HA.
 
@@ -9,13 +9,25 @@ API-nycklar konfigureras en gång här och används av:
   - Chronicle AI (Q&A + Energi-Coach)
   - ... och framtida integrationer
 
-Nycklar läses från:
-  input_text.ai_hub_groq_key
-  input_text.ai_hub_anthropic_key
-  input_text.ai_hub_openai_key
-  input_select.ai_hub_default_provider
+Konfigurerbara entiteter (skapas av packages/ai_hub.yaml):
+  input_text.ai_hub_groq_key          – Groq API-nyckel (gratis på groq.com)
+  input_text.ai_hub_anthropic_key     – Anthropic API-nyckel (betalt, antropic.com)
+  input_text.ai_hub_openai_key        – OpenAI API-nyckel (betalt, platform.openai.com)
+  input_select.ai_hub_default_provider – Vilken leverantör som används (auto/groq/anthropic/openai/ha_ai_task)
+  input_select.ai_hub_groq_model      – Vilken Groq-modell som används för text
 
-Sensorer:
+Groq-modeller (väljs i input_select.ai_hub_groq_model):
+  llama-3.3-70b-versatile  → Standard. Bäst kvalitet, ~14 400 anrop/dygn (gratis)
+  llama-3.1-8b-instant     → Snabb och lätt. Bra för enkla frågor, ~14 400 anrop/dygn
+  llama-3.2-3b-preview     → Minst/snabbast. Mycket hög dagsgräns.
+  mixtral-8x7b-32768       → Bra för långa texter (32k kontext)
+  gemma2-9b-it             → Google Gemma via Groq
+
+OBS: Groq-modellerna ovan är för TEXT (receptförslag, F1-kommentar etc.).
+     Caregiver Modes vision-modell (bildanalys) konfigureras separat i
+     Inställningar → Enheter och tjänster → Caregiver Mode → Konfigurera.
+
+Sensorer (skapas automatiskt vid start):
   sensor.ai_hub_status          – ready / busy / error
   sensor.ai_hub_last_response   – senaste AI-svar (text + metadata)
   sensor.ai_hub_providers       – vilka leverantörer som är konfigurerade
@@ -81,11 +93,14 @@ def _configured_providers():
 # ── Provider-anrop ─────────────────────────────────────────────────────────────
 
 async def _call_groq(api_key, prompt, max_tokens):
-    """Groq – llama-3.3-70b-versatile (gratis tier tillgängligt)."""
+    """Groq – modell väljs via input_select.ai_hub_groq_model (standard: llama-3.3-70b-versatile)."""
     import aiohttp
+    model = (state.get("input_select.ai_hub_groq_model") or "llama-3.3-70b-versatile").strip()
+    # Filtrera bort kommentarer om någon råkat inkludera dem
+    model = model.split("#")[0].strip() if "#" in model else model
     try:
         payload = {
-            "model": "llama-3.3-70b-versatile",
+            "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
             "temperature": 0.8,

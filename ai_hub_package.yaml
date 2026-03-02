@@ -47,6 +47,21 @@ input_select:
       - openai        # OpenAI GPT-4o-mini — kräver OpenAI API-nyckel ovan
     initial: auto
 
+  ai_hub_groq_model:
+    name: "AI Hub – Groq textmodell"
+    icon: mdi:brain
+    options:
+      # Stora modeller – bäst kvalitet, något lägre dagsgräns
+      - llama-3.3-70b-versatile        # Rekommenderas – balans kvalitet/hastighet
+      - llama-3.1-70b-versatile        # Äldre 70B, stabil
+      # Snabba modeller – lägre kvalitet men snabbare och högre dagsgräns
+      - llama-3.1-8b-instant           # Snabbast, bra för enkla frågor
+      - llama-3.2-3b-preview           # Minst/snabbast, mycket hög dagsgräns
+      # Andra arkitekturer
+      - mixtral-8x7b-32768             # Bra för långa texter (32k context)
+      - gemma2-9b-it                   # Google Gemma via Groq
+    initial: llama-3.3-70b-versatile
+
 
 script:
 
