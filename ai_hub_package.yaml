@@ -27,11 +27,29 @@ input_text:
     max: 255
     initial: ""
 
+  ai_hub_ollama_url:
+    name: "AI Hub – Ollama URL"
+    icon: mdi:server-network
+    max: 255
+    initial: "http://192.168.2.116:11434"
+
+  ai_hub_ollama_model:
+    name: "AI Hub – Ollama modell"
+    icon: mdi:brain
+    max: 100
+    initial: "phi3:latest"
+
   ai_hub_test_prompt:
     name: "AI Hub – Testprompt"
     icon: mdi:comment-question-outline
     max: 255
     initial: "Skriv en mening om Formel 1 på svenska."
+
+  ai_hub_ollama_prompt:
+    name: "AI Hub – Ollama chat-prompt"
+    icon: mdi:chat-outline
+    max: 255
+    initial: ""
 
 
 input_select:
@@ -40,7 +58,8 @@ input_select:
     name: "AI Hub – Standardleverantör"
     icon: mdi:robot
     options:
-      - auto          # Groq → Anthropic → OpenAI → ha_ai_task (första med giltig nyckel)
+      - auto          # Ollama → Groq → Anthropic → OpenAI → ha_ai_task
+      - ollama        # Lokal Ollama (ingen API-nyckel, kräver körande server + modell)
       - groq          # Groq (gratis, snabb) — kräver Groq API-nyckel ovan
       - ha_ai_task    # HA:s inbyggda AI (Google AI / Anthropic etc.)
       - anthropic     # Anthropic Claude direkt — kräver Anthropic API-nyckel ovan
@@ -70,3 +89,14 @@ script:
     icon: mdi:send
     sequence:
       - service: pyscript.ai_hub_test
+
+  ai_hub_ollama_btn:
+    alias: "AI Hub – Skicka till Ollama"
+    icon: mdi:send
+    sequence:
+      - service: pyscript.ai_hub_ask
+        data:
+          prompt: "{{ states('input_text.ai_hub_ollama_prompt') }}"
+          provider: ollama
+          max_tokens: 500
+          caller: ollama_chat

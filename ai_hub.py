@@ -1,5 +1,5 @@
 """
-AI Hub – Centraliserad AI-leverantörshantering  v1.1
+AI Hub – Centraliserad AI-leverantörshantering  v1.2
 =====================================================
 Hanterar API-nycklar och routing för alla AI-integrationer i HA.
 
@@ -13,7 +13,9 @@ Konfigurerbara entiteter (skapas av packages/ai_hub.yaml):
   input_text.ai_hub_groq_key          – Groq API-nyckel (gratis på groq.com)
   input_text.ai_hub_anthropic_key     – Anthropic API-nyckel (betalt, antropic.com)
   input_text.ai_hub_openai_key        – OpenAI API-nyckel (betalt, platform.openai.com)
-  input_select.ai_hub_default_provider – Vilken leverantör som används (auto/groq/anthropic/openai/ha_ai_task)
+  input_text.ai_hub_ollama_url         – Ollama server-URL (standard: http://192.168.2.116:11434)
+  input_text.ai_hub_ollama_model       – Ollama-modell att använda (t.ex. llama3.2, mistral)
+  input_select.ai_hub_default_provider – Vilken leverantör som används (auto/ollama/groq/anthropic/openai/ha_ai_task)
   input_select.ai_hub_groq_model      – Vilken Groq-modell som används för text
 
 Groq-modeller (väljs i input_select.ai_hub_groq_model):
@@ -80,9 +82,21 @@ def _get_key(provider):
     return ""
 
 
+def _ollama_available():
+    """True om Ollama-URL är satt och en modell är konfigurerad."""
+    try:
+        url = (state.get("input_text.ai_hub_ollama_url") or "").strip()
+        model = (state.get("input_text.ai_hub_ollama_model") or "").strip()
+        return bool(url) and url not in ("unknown", "unavailable") and bool(model)
+    except Exception:
+        return False
+
+
 def _configured_providers():
     """Returnerar lista med leverantörer som har giltig nyckel."""
     result = []
+    if _ollama_available():
+        result.append("ollama")
     for p in ("groq", "anthropic", "openai"):
         if _key_ok(_get_key(p)):
             result.append(p)
@@ -176,6 +190,41 @@ async def _call_openai(api_key, prompt, max_tokens):
     return None
 
 
+async def _call_ollama(prompt, max_tokens):
+    """Ollama – lokal LLM-server, native /api/chat endpoint. Ingen nyckel behövs."""
+    import aiohttp
+    base_url = (state.get("input_text.ai_hub_ollama_url") or "http://192.168.2.116:11434").strip().rstrip("/")
+    model = (state.get("input_text.ai_hub_ollama_model") or "phi3:latest").strip()
+    try:
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "options": {"num_predict": max_tokens, "temperature": 0.7},
+        }
+        headers = {"Content-Type": "application/json"}
+        # Använd await sess.post() direkt (inte async with på responsen) –
+        # undviker pyscript-bugg med _BaseRequestContextManager vid HTTP-fel
+        async with aiohttp.ClientSession() as sess:
+            resp = await sess.post(
+                f"{base_url}/api/chat",
+                headers=headers, json=payload,
+                timeout=aiohttp.ClientTimeout(total=120),
+            )
+            try:
+                body = await resp.json(content_type=None)
+                if resp.status == 200:
+                    content = body.get("message", {}).get("content", "").strip()
+                    return content or None
+                err = body.get("error", str(body))
+                log.warning(f"[AI Hub] Ollama HTTP {resp.status}: {err[:200]}")
+            finally:
+                resp.release()
+    except Exception as e:
+        log.warning(f"[AI Hub] Ollama-fel: {e}")
+    return None
+
+
 async def _call_ha_ai_task(prompt):
     """HA:s inbyggda AI (Google AI / Anthropic beroende på HA-konfiguration)."""
     try:
@@ -206,6 +255,9 @@ async def _route(prompt, provider, max_tokens):
     """
     p = (provider or "auto").strip().lower()
 
+    if p == "ollama":
+        return await _call_ollama(prompt, max_tokens)
+
     if p == "groq":
         key = _get_key("groq")
         if not _key_ok(key):
@@ -230,7 +282,12 @@ async def _route(prompt, provider, max_tokens):
     if p == "ha_ai_task":
         return await _call_ha_ai_task(prompt)
 
-    # auto: prova alla med nyckel i tur och ordning, sedan ha_ai_task
+    # auto: Ollama → Groq → Anthropic → OpenAI → ha_ai_task
+    if _ollama_available():
+        result = await _call_ollama(prompt, max_tokens)
+        if result:
+            return result
+
     for prov, call_fn in [
         ("groq",      _call_groq),
         ("anthropic", _call_anthropic),

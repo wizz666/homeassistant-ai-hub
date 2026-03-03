@@ -25,6 +25,14 @@ views:
           - entity: input_text.ai_hub_openai_key
             name: "OpenAI"
 
+      - type: entities
+        title: "Ollama (lokal AI – ingen nyckel krävs)"
+        entities:
+          - entity: input_text.ai_hub_ollama_url
+            name: "Server-URL"
+          - entity: input_text.ai_hub_ollama_model
+            name: "Modell"
+
       - type: markdown
         content: >
           ### Skaffa API-nycklar
@@ -35,8 +43,10 @@ views:
           | **Anthropic** | ~$0.25/1M tokens | [console.anthropic.com](https://console.anthropic.com) |
           | **OpenAI** | ~$0.15/1M tokens | [platform.openai.com](https://platform.openai.com) |
           | **ha_ai_task** | Gratis | Kräver Google AI eller Anthropic i HA |
+          | **Ollama** | Gratis | Kräver lokal server (t.ex. `ollama run llama3.2`) |
 
           **Rekommendation**: Börja med **Groq** — gratis konto, snabb och bra kvalitet.
+          För lokal AI utan internet: sätt standardleverantör till **ollama**.
 
           ### Vilka integrationer använder AI Hub?
           - 🏎️ **OpenF1** — Live-kommentar + sessionreferat
@@ -129,4 +139,63 @@ views:
           Anropare: {{ caller }}
           {% else %}
           Inga anrop ännu.
+          {% endif %}
+
+  # ─── Vy 4: Ollama Chat ────────────────────────────────────────────────────
+  - title: "Ollama"
+    path: ollama
+    icon: mdi:brain
+    cards:
+
+      - type: markdown
+        content: >
+          ### 🦙 Ollama – Lokal AI
+
+          Kör AI direkt på din server, utan API-nycklar och utan att data lämnar hemmet.
+
+          **Modell installerad:** `phi3:latest`
+
+          Vill du lägga till fler modeller? Kör på Ollama-servern:
+          `ollama pull llama3.2:1b` · `ollama pull mistral` · `ollama pull gemma2:2b`
+
+      - type: entities
+        title: "Inställningar"
+        entities:
+          - entity: input_text.ai_hub_ollama_url
+            name: "Server-URL"
+          - entity: input_text.ai_hub_ollama_model
+            name: "Modell (t.ex. llama3.2)"
+          - entity: sensor.ai_hub_status
+            name: "Status"
+
+      - type: entities
+        title: "Chatta med Ollama"
+        entities:
+          - entity: input_text.ai_hub_ollama_prompt
+            name: "Din fråga"
+
+      - type: button
+        name: "Skicka till Ollama"
+        icon: mdi:send
+        tap_action:
+          action: call-service
+          service: script.ai_hub_ollama_btn
+
+      - type: markdown
+        title: "Svar"
+        content: >
+          {% set caller = state_attr('sensor.ai_hub_last_response', 'caller') %}
+          {% set prov = state_attr('sensor.ai_hub_last_response', 'provider_used') %}
+          {% set ts = state_attr('sensor.ai_hub_last_response', 'timestamp') %}
+          {% set prompt = state_attr('sensor.ai_hub_last_response', 'prompt') %}
+          {% if caller == 'ollama_chat' and ts %}
+          _{{ prov }} · {{ ts[11:16] }} UTC_
+
+          > **{{ prompt }}**
+
+          {{ states('sensor.ai_hub_last_response') }}
+          {% elif states('sensor.ai_hub_status') == 'busy' %}
+          _🤔 Ollama tänker..._
+          {% else %}
+          _Skriv en fråga ovan och tryck Skicka._
           {% endif %}
