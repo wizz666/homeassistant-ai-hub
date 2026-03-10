@@ -6,7 +6,7 @@
 
 **[🇸🇪 Svenska → README.sv.md](README.sv.md)**
 
-Centralised AI provider management for Home Assistant. Enter your API keys once — all integrations use them automatically. Supports cloud providers (Groq, Anthropic, OpenAI) and **local AI via Ollama** — no internet required.
+Centralised AI provider management for Home Assistant. Enter your API keys once — all integrations use them automatically. Supports cloud providers (Groq, OpenRouter, Anthropic, OpenAI) and **local AI via Ollama** — no internet required.
 
 ---
 
@@ -36,10 +36,10 @@ Update once. Done.
 
 ## Features
 
-- **One place for all API keys** — Groq, Anthropic, OpenAI
+- **One place for all API keys** — Groq, OpenRouter, Anthropic, OpenAI
 - **Local AI with Ollama** — run AI on your own server, no API key, no internet
 - **Provider switching** — change the default provider and all integrations follow
-- **Auto-routing** — `auto` mode tries Ollama → Groq → Anthropic → OpenAI → ha_ai_task
+- **Auto-routing** — `auto` mode tries Ollama → Groq → OpenRouter → Anthropic → OpenAI → ha_ai_task
 - **Built-in chat interface** — dedicated Ollama chat tab in the dashboard
 - **Built-in test interface** — type a prompt, send it, see the response
 - **Usage statistics** — total calls and calls per provider per session
@@ -54,6 +54,7 @@ Update once. Done.
 |----------|------|-------|-------|
 | **Ollama** | Free | Any model you install | Local, private, no internet required |
 | **Groq** | Free tier | llama-3.3-70b-versatile | Recommended cloud option |
+| **OpenRouter** | Free tier + pay-per-use | 300+ models | Access any model via one API key |
 | **Anthropic** | ~$0.25/1M tokens | claude-haiku-4-5 | Fast and high quality |
 | **OpenAI** | ~$0.15/1M tokens | gpt-4o-mini | Widely supported |
 | **ha_ai_task** | Free | Depends on HA setup | Uses whatever AI is configured in HA |
@@ -65,6 +66,7 @@ Update once. Done.
 - 🏎️ [OpenF1](https://github.com/wizz666/homeassistant-openf1) — live race commentary + session recap
 - 🛒 [Grocery Tracker](https://github.com/wizz666/homeassistant-grocery-tracker) — recipe suggestions
 - 📖 [Chronicle AI](https://github.com/wizz666/homeassistant-chronicle-ai) — home Q&A + energy coach
+- 🤖 [OpenRouter Bridge](https://github.com/wizz666/homeassistant-openrouter-bridge) — use Claude Code CLI with any OpenRouter model
 
 ---
 
@@ -280,9 +282,10 @@ If you're building a pyscript integration that needs AI, read keys like this:
 def _get_ai_key(provider):
     """AI Hub first, then own fallback key."""
     hub_entities = {
-        "groq":      "input_text.ai_hub_groq_key",
-        "anthropic": "input_text.ai_hub_anthropic_key",
-        "openai":    "input_text.ai_hub_openai_key",
+        "groq":        "input_text.ai_hub_groq_key",
+        "anthropic":   "input_text.ai_hub_anthropic_key",
+        "openai":      "input_text.ai_hub_openai_key",
+        "openrouter":  "input_text.ai_hub_openrouter_key",
     }
     entity = hub_entities.get(provider, "")
     key = (state.get(entity) or "").strip() if entity else ""

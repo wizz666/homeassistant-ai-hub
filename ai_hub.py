@@ -15,7 +15,9 @@ Konfigurerbara entiteter (skapas av packages/ai_hub.yaml):
   input_text.ai_hub_openai_key        – OpenAI API-nyckel (betalt, platform.openai.com)
   input_text.ai_hub_ollama_url         – Ollama server-URL (standard: http://192.168.2.116:11434)
   input_text.ai_hub_ollama_model       – Ollama-modell att använda (t.ex. llama3.2, mistral)
-  input_select.ai_hub_default_provider – Vilken leverantör som används (auto/ollama/groq/anthropic/openai/ha_ai_task)
+  input_text.ai_hub_openrouter_key    – OpenRouter API-nyckel (openrouter.ai, gratis tier tillgänglig)
+  input_text.ai_hub_openrouter_model  – OpenRouter modell-ID (t.ex. meta-llama/llama-3.3-70b-instruct:free)
+  input_select.ai_hub_default_provider – Vilken leverantör som används (auto/ollama/groq/openrouter/anthropic/openai/ha_ai_task)
   input_select.ai_hub_groq_model      – Vilken Groq-modell som används för text
 
 Groq-modeller (väljs i input_select.ai_hub_groq_model):
@@ -58,9 +60,10 @@ def _get_key(provider):
     (Så slipper man lägga in nyckeln igen om den redan finns någonstans.)
     """
     mapping = {
-        "groq":      "input_text.ai_hub_groq_key",
-        "anthropic": "input_text.ai_hub_anthropic_key",
-        "openai":    "input_text.ai_hub_openai_key",
+        "groq":        "input_text.ai_hub_groq_key",
+        "anthropic":   "input_text.ai_hub_anthropic_key",
+        "openai":      "input_text.ai_hub_openai_key",
+        "openrouter":  "input_text.ai_hub_openrouter_key",
     }
     # Legacy-fallbacks: nycklar från andra integrationer
     legacy = {
@@ -97,7 +100,7 @@ def _configured_providers():
     result = []
     if _ollama_available():
         result.append("ollama")
-    for p in ("groq", "anthropic", "openai"):
+    for p in ("groq", "openrouter", "anthropic", "openai"):
         if _key_ok(_get_key(p)):
             result.append(p)
     result.append("ha_ai_task")   # Alltid tillgänglig om AI är konfigurerat i HA
@@ -190,6 +193,43 @@ async def _call_openai(api_key, prompt, max_tokens):
     return None
 
 
+async def _call_openrouter(api_key, prompt, max_tokens):
+    """OpenRouter – modell väljs via input_text.ai_hub_openrouter_model."""
+    import aiohttp
+    model = (state.get("input_text.ai_hub_openrouter_model") or "meta-llama/llama-3.3-70b-instruct:free").strip()
+    try:
+        sys_msg = _build_system_message()
+        messages = []
+        if sys_msg:
+            messages.append({"role": "system", "content": sys_msg})
+        messages.append({"role": "user", "content": prompt})
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.8,
+        }
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "HTTP-Referer": "https://homeassistant.local",
+            "X-Title": "HA AI Hub",
+            "Content-Type": "application/json",
+        }
+        async with aiohttp.ClientSession() as sess:
+            async with sess.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers, json=payload,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    return data["choices"][0]["message"]["content"].strip()
+                log.warning(f"[AI Hub] OpenRouter HTTP {resp.status}")
+    except Exception as e:
+        log.warning(f"[AI Hub] OpenRouter-fel: {e}")
+    return None
+
+
 async def _call_ollama(prompt, max_tokens):
     """Ollama – lokal LLM-server, native /api/chat endpoint. Ingen nyckel behövs."""
     import aiohttp
@@ -279,18 +319,26 @@ async def _route(prompt, provider, max_tokens):
             return None
         return await _call_openai(key, prompt, max_tokens)
 
+    if p == "openrouter":
+        key = _get_key("openrouter")
+        if not _key_ok(key):
+            log.warning("[AI Hub] OpenRouter valt men ingen nyckel i input_text.ai_hub_openrouter_key")
+            return None
+        return await _call_openrouter(key, prompt, max_tokens)
+
     if p == "ha_ai_task":
         return await _call_ha_ai_task(prompt)
 
-    # auto: Ollama → Groq → Anthropic → OpenAI → ha_ai_task
+    # auto: Ollama → Groq → OpenRouter → Anthropic → OpenAI → ha_ai_task
     if _ollama_available():
         result = await _call_ollama(prompt, max_tokens)
         if result:
             return result
 
     for prov, call_fn in [
-        ("groq",      _call_groq),
-        ("anthropic", _call_anthropic),
+        ("groq",        _call_groq),
+        ("openrouter",  _call_openrouter),
+        ("anthropic",   _call_anthropic),
         ("openai",    _call_openai),
     ]:
         key = _get_key(prov)
