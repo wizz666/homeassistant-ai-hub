@@ -27,6 +27,19 @@ input_text:
     max: 255
     initial: ""
 
+  ai_hub_openrouter_key:
+    name: "AI Hub – OpenRouter API-nyckel"
+    icon: mdi:key
+    mode: password
+    max: 255
+    initial: ""
+
+  ai_hub_openrouter_model:
+    name: "AI Hub – OpenRouter modell"
+    icon: mdi:brain
+    max: 255
+    initial: "meta-llama/llama-3.3-70b-instruct:free"
+
   ai_hub_ollama_url:
     name: "AI Hub – Ollama URL"
     icon: mdi:server-network
@@ -58,9 +71,10 @@ input_select:
     name: "AI Hub – Standardleverantör"
     icon: mdi:robot
     options:
-      - auto          # Ollama → Groq → Anthropic → OpenAI → ha_ai_task
+      - auto          # Ollama → Groq → OpenRouter → Anthropic → OpenAI → ha_ai_task
       - ollama        # Lokal Ollama (ingen API-nyckel, kräver körande server + modell)
       - groq          # Groq (gratis, snabb) — kräver Groq API-nyckel ovan
+      - openrouter    # OpenRouter – 300+ modeller inkl. gratis — kräver OpenRouter API-nyckel
       - ha_ai_task    # HA:s inbyggda AI (Google AI / Anthropic etc.)
       - anthropic     # Anthropic Claude direkt — kräver Anthropic API-nyckel ovan
       - openai        # OpenAI GPT-4o-mini — kräver OpenAI API-nyckel ovan
