@@ -44,7 +44,7 @@ input_text:
     name: "AI Hub – Ollama URL"
     icon: mdi:server-network
     max: 255
-    initial: "http://192.168.2.116:11434"
+    initial: "http://localhost:11434"
 
   ai_hub_ollama_model:
     name: "AI Hub – Ollama modell"
@@ -58,14 +58,93 @@ input_text:
     max: 255
     initial: "Skriv en mening om Formel 1 på svenska."
 
+  ai_hub_automation_prompt:
+    name: "AI Hub – Beskriv automation"
+    icon: mdi:robot-outline
+    max: 255
+    initial: ""
+
+  ai_hub_ollama_install_model:
+    name: "AI Hub – Installera eget modellnamn"
+    icon: mdi:download
+    max: 100
+    initial: ""
+
   ai_hub_ollama_prompt:
     name: "AI Hub – Ollama chat-prompt"
     icon: mdi:chat-outline
     max: 255
     initial: ""
 
+  ai_hub_system_prompt:
+    name: "AI Hub – Systemprompt / Persona"
+    icon: mdi:account-voice
+    max: 255
+    initial: "Du är en smart hemassistent. Svara alltid på svenska och var kortfattad."
+
+  ai_hub_context_entities:
+    name: "AI Hub – Kontext-entiteter (kommaseparerade)"
+    icon: mdi:home-analytics
+    max: 255
+    initial: ""
+
+  ai_hub_morning_brief_notify:
+    name: "AI Hub – Morgonbriefing notifiering"
+    icon: mdi:bell-outline
+    max: 255
+    initial: ""
+
+  ai_hub_vault_password:
+    name: "AI Hub – Valvlösenord"
+    icon: mdi:lock
+    mode: password
+    max: 255
+    initial: ""
+
+  ai_hub_vault_new_password:
+    name: "AI Hub – Nytt valvlösenord"
+    icon: mdi:lock-reset
+    mode: password
+    max: 255
+    initial: ""
+
+
+input_boolean:
+
+  ai_hub_morning_brief:
+    name: "AI Hub – Morgonbriefing aktiverad"
+    icon: mdi:weather-sunset-up
+
+
+input_datetime:
+
+  ai_hub_morning_brief_time:
+    name: "AI Hub – Morgonbriefing tid"
+    icon: mdi:clock-outline
+    has_time: true
+    has_date: false
+    initial: "07:00:00"
+
 
 input_select:
+
+  ai_hub_ollama_model_select:
+    name: "AI Hub – Välj Ollama-modell"
+    icon: mdi:brain
+    options:
+      - "Laddar..."   # Ersätts dynamiskt av pyscript vid start
+
+  ai_hub_ollama_recommended:
+    name: "AI Hub – Installera rekommenderad modell"
+    icon: mdi:download
+    options:
+      - "fixt/home-3b-v3:q3_k_m  (1.4 GB – HA-specialiserad)"
+      - "fixt/home-3b-v3:q2_k    (1.1 GB – HA-specialiserad, minst)"
+      - "llama3.2:1b              (1.3 GB – snabb allmänmodell)"
+      - "qwen2.5:1.5b             (1.0 GB – liten och snabb)"
+      - "gemma2:2b                (1.6 GB – bra på svenska)"
+      - "tinyllama:latest         (0.6 GB – extremt liten)"
+      - "mistral:latest           (4.1 GB – bäst kvalitet)"
 
   ai_hub_default_provider:
     name: "AI Hub – Standardleverantör"
@@ -98,6 +177,58 @@ input_select:
 
 script:
 
+  ai_hub_ollama_install_recommended_btn:
+    alias: "AI Hub – Installera vald rekommenderad modell"
+    icon: mdi:download
+    sequence:
+      # Extrahera modellnamnet (allt före första mellanslag)
+      - variables:
+          raw: "{{ states('input_select.ai_hub_ollama_recommended') }}"
+          model_name: "{{ states('input_select.ai_hub_ollama_recommended').split(' ')[0] }}"
+      - condition: template
+        value_template: "{{ model_name | length > 2 }}"
+      - service: pyscript.ai_hub_ollama_pull
+        data:
+          model: "{{ model_name }}"
+
+  ai_hub_ollama_install_custom_btn:
+    alias: "AI Hub – Installera eget modellnamn"
+    icon: mdi:download-circle
+    sequence:
+      - variables:
+          model_name: "{{ states('input_text.ai_hub_ollama_install_model').strip() }}"
+      - condition: template
+        value_template: "{{ model_name | length > 2 and model_name not in ('unknown','unavailable') }}"
+      - service: pyscript.ai_hub_ollama_pull
+        data:
+          model: "{{ model_name }}"
+
+  ai_hub_vault_unlock_btn:
+    alias: "AI Hub – Lås upp valv"
+    icon: mdi:lock-open
+    sequence:
+      - service: pyscript.ai_hub_vault_unlock
+        data:
+          password: "{{ states('input_text.ai_hub_vault_password') }}"
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.ai_hub_vault_password
+        data:
+          value: ""
+
+  ai_hub_vault_set_pw_btn:
+    alias: "AI Hub – Spara nytt valvlösenord"
+    icon: mdi:content-save-check
+    sequence:
+      - service: pyscript.ai_hub_vault_set_password
+        data:
+          new_password: "{{ states('input_text.ai_hub_vault_new_password') }}"
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.ai_hub_vault_new_password
+        data:
+          value: ""
+
   ai_hub_test_btn:
     alias: "AI Hub – Testa"
     icon: mdi:send
@@ -108,9 +239,66 @@ script:
     alias: "AI Hub – Skicka till Ollama"
     icon: mdi:send
     sequence:
+      # Fånga prompten INNAN vi rensar fältet
+      - variables:
+          captured_prompt: "{{ states('input_text.ai_hub_ollama_prompt') }}"
+      # Rensa promptfältet direkt (förhindrar dubbelskick från Enter-automatiken)
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.ai_hub_ollama_prompt
+        data:
+          value: ""
+      # Skicka frågan
+      - condition: template
+        value_template: "{{ captured_prompt | length > 0 and captured_prompt not in ('unknown', 'unavailable') }}"
       - service: pyscript.ai_hub_ask
         data:
-          prompt: "{{ states('input_text.ai_hub_ollama_prompt') }}"
+          prompt: "{{ captured_prompt }}"
           provider: ollama
           max_tokens: 500
           caller: ollama_chat
+
+
+automation:
+
+  - id: ai_hub_ollama_model_sync
+    alias: "AI Hub – Synka vald Ollama-modell till input_text"
+    description: >
+      När användaren väljer modell i dropdown → uppdaterar input_text.ai_hub_ollama_model.
+    trigger:
+      - platform: state
+        entity_id: input_select.ai_hub_ollama_model_select
+    condition:
+      - condition: template
+        value_template: >
+          {{ trigger.to_state.state not in ('unknown', 'unavailable', 'Laddar...', '') }}
+    action:
+      - service: input_text.set_value
+        target:
+          entity_id: input_text.ai_hub_ollama_model
+        data:
+          value: "{{ trigger.to_state.state }}"
+
+  - id: ai_hub_ollama_enter_key
+    alias: "AI Hub – Enter skickar Ollama-fråga"
+    description: >
+      Skickar automatiskt när användaren trycker Enter i promptfältet.
+      Fungerar på tangentbord (desktop + mobil).
+      Dubbelskick förhindras av 0.5s delay + tom-fält-check.
+    trigger:
+      - platform: state
+        entity_id: input_text.ai_hub_ollama_prompt
+    condition:
+      - condition: template
+        value_template: >
+          {{ trigger.to_state.state | length > 0
+             and trigger.to_state.state not in ('unknown', 'unavailable', '') }}
+    action:
+      # Liten delay: om knappklick rensade fältet redan → condition nedan fallerar → ingen dubbelskick
+      - delay: "00:00:00.5"
+      # Dubbelkoll att fältet fortfarande har text och AI inte är busy
+      - condition: template
+        value_template: >
+          {{ states('input_text.ai_hub_ollama_prompt') | length > 0
+             and states('sensor.ai_hub_status') not in ('busy', 'healing') }}
+      - service: script.ai_hub_ollama_btn
