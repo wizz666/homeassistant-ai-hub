@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "AI Hub – API Keys",
+        "description": "Enter your API keys. All fields are optional — leave empty any service you don't use.\n\nKeys are stored securely in Home Assistant and shared with other integrations automatically.",
+        "data": {
+          "groq_key": "Groq API key (free — groq.com)",
+          "anthropic_key": "Anthropic API key (claude.ai)",
+          "openai_key": "OpenAI API key (platform.openai.com)",
+          "openrouter_key": "OpenRouter API key (openrouter.ai)",
+          "openrouter_model": "OpenRouter default model",
+          "ollama_url": "Ollama server URL",
+          "ollama_model": "Ollama default model"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "AI Hub is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "AI Hub – Update API Keys",
+        "description": "Update your API keys. Changes are applied immediately to all integrations.",
+        "data": {
+          "groq_key": "Groq API key (free — groq.com)",
+          "anthropic_key": "Anthropic API key (claude.ai)",
+          "openai_key": "OpenAI API key (platform.openai.com)",
+          "openrouter_key": "OpenRouter API key (openrouter.ai)",
+          "openrouter_model": "OpenRouter default model",
+          "ollama_url": "Ollama server URL",
+          "ollama_model": "Ollama default model"
+        }
+      }
+    }
+  }
+}
