@@ -1,11 +1,13 @@
 {
   "domain": "ai_hub",
   "name": "AI Hub",
-  "codeowners": ["@wizz666"],
+  "codeowners": [
+    "@wizz666"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/wizz666/homeassistant-ai-hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/wizz666/homeassistant-ai-hub/issues",
   "requirements": [],
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
