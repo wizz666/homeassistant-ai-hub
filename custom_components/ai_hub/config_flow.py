@@ -11,18 +11,7 @@ from .const import (
     CONF_OPENROUTER_KEY, CONF_OPENROUTER_MODEL,
     CONF_OLLAMA_URL, CONF_OLLAMA_MODEL,
     DEFAULT_OPENROUTER_MODEL, DEFAULT_OLLAMA_URL, DEFAULT_OLLAMA_MODEL,
-    KEY_TO_ENTITY,
 )
-
-
-def _read_existing_keys(hass) -> dict:
-    """Read existing keys from input_text entities (migration helper)."""
-    values = {}
-    for conf_key, entity_id in KEY_TO_ENTITY.items():
-        state = hass.states.get(entity_id)
-        if state and state.state not in ("", "unknown", "unavailable", "none"):
-            values[conf_key] = state.state
-    return values
 
 
 def _key_schema(defaults: dict) -> vol.Schema:
@@ -46,15 +35,12 @@ class AIHubConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._async_current_entries():
             return self.async_abort(reason="already_configured")
 
-        # Pre-populate from existing input_text entities (migration)
-        existing = _read_existing_keys(self.hass)
-
         if user_input is not None:
             return self.async_create_entry(title="AI Hub", data=user_input)
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_key_schema(existing),
+            data_schema=_key_schema({}),
         )
 
     @staticmethod
